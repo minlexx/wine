@@ -11,6 +11,7 @@ C_SRCS = \
 	startmenu.c \
 	systray.c \
 	dbus.c \
-	dbus_introspection.c
+	dbus_introspection.c \
+	dbus_root_object.c
 
 RC_SRCS = explorer.rc

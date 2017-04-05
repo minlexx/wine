@@ -53,9 +53,6 @@ CRITICAL_SECTION g_dconn_cs;
 
 /* forward declarations */
 static void start_dbus_thread(void);
-static void root_message_handler_unreg(DBusConnection *conn, void *user_data);
-static DBusHandlerResult root_message_handler(DBusConnection *conn,
-        DBusMessage *msg, void *user_data );
 
 
 /* Loads libdbus-1 DLL and binds to all used dbus functions */
@@ -87,8 +84,6 @@ BOOL initialize_dbus(void)
     DBusError derr = DBUS_ERROR_INIT;
     const char *unique_name = NULL;
     int res = 0;
-    dbus_bool_t resb = FALSE;
-    DBusObjectPathVTable vtable;
     
     /* 1. Load dbus-1 DLL */
     if (!load_dbus_functions()) return FALSE;
@@ -125,28 +120,17 @@ BOOL initialize_dbus(void)
     }
     WINE_TRACE("Registered on DBus as " EXPLORER_DBUS_NAME "\n");
     
-    /* 4. Register root object callbacks/vtable on bus and start message loop */
-    InitializeCriticalSection(&g_dconn_cs);
-    /* Register default message handler for root DBus object "/" */
-    ZeroMemory(&vtable, sizeof(vtable));
-    vtable.unregister_function = root_message_handler_unreg;
-    vtable.message_function    = root_message_handler;
-    resb = g_fn_dbus_connection_try_register_fallback(
-            g_dconn,
-            "/",           /* object path */
-            &vtable,       /* message handler functions */
-            NULL,          /* user_data */
-            &derr);
-    if( resb == FALSE )
+    /* 4. Register default message handler for root DBus object "/" */
+    if (!winedbus_register_root_object(g_dconn))
     {
-        WINE_WARN("DBus: ERROR: Failed to register DBus root object "
-             "message handler! Error: %s\n", derr.message);
-        g_fn_dbus_error_free(&derr);
+        WINE_WARN("Disabling DBus functions.\n");
         g_fn_dbus_connection_unref(g_dconn);
         g_dconn = NULL;
         return FALSE;
     }
-    /* start message loop thread */
+    
+    /* 5. Start message loop thread */
+    InitializeCriticalSection(&g_dconn_cs);
     start_dbus_thread();
     
     g_fn_dbus_error_free(&derr);
@@ -171,9 +155,38 @@ void disconnect_dbus(void)
 }
 
 
+dbus_bool_t winedbus_register_object(
+        const char *path,
+        DBusObjectPathMessageFunction message_handler_fn,
+        void *user_data)
+{
+    dbus_bool_t resb = FALSE;
+    DBusObjectPathVTable vtable;
+    DBusError derr = DBUS_ERROR_INIT;
+    
+    ZeroMemory(&vtable, sizeof(vtable));
+    vtable.unregister_function = winedbus_message_unregistered_fn;
+    vtable.message_function    = message_handler_fn;
+    resb = g_fn_dbus_connection_try_register_object_path(
+            g_dconn,
+            path,          /* object path */
+            &vtable,       /* message handler functions */
+            user_data,     /* user_data */
+            &derr);
+    if(resb == FALSE)
+    {
+        WINE_WARN("DBus: ERROR: Failed to register DBus object for path [%s]!\n"
+                  "Error: %s\n", path, derr.message);
+    }
+    
+    g_fn_dbus_error_free(&derr);
+    return resb;
+}
+
+
 /* Locks connection lock, sends message and unlocks the lock.
  * Safe to use with message loop thread running. */
-dbus_bool_t dbus_send_safe(DBusMessage *msg)
+dbus_bool_t winedbus_send_safe(DBusMessage *msg)
 {
     dbus_bool_t resb;
     
@@ -245,49 +258,6 @@ static void start_dbus_thread(void)
         CloseHandle(handle);
         WINE_TRACE("Started dbus message loop thread.\n");
     }
-}
-
-
-/* Called when a DBusObjectPathVTable is unregistered (or its connection is freed). */
-static void root_message_handler_unreg(DBusConnection *conn, void *user_data)
-{
-    UNREFERENCED_PARAMETER(conn);      /* unused */
-    UNREFERENCED_PARAMETER(user_data); /* unused */
-    TRACE("DBus: root object was unregistered\n");
-}
-
-
-/* Called when a message is sent to a registered object path. */
-static DBusHandlerResult root_message_handler(
-        DBusConnection *conn,
-        DBusMessage *msg,
-        void *user_data)
-{
-    DBusHandlerResult ret;
-    const char *mpath, *mintf, *mmemb, *mdest, *msig;
-    
-    UNREFERENCED_PARAMETER(user_data); /* unused */
-    
-    /* probably, default fallback message handler should always
-     * mark message as handled, otherwise it will cause errors */
-    ret = DBUS_HANDLER_RESULT_HANDLED;
-    
-    /* Get message information */
-    mpath = g_fn_dbus_message_get_path(msg);
-    mintf = g_fn_dbus_message_get_interface(msg);
-    mmemb = g_fn_dbus_message_get_member(msg);
-    mdest = g_fn_dbus_message_get_destination(msg);
-    msig  = g_fn_dbus_message_get_signature(msg);
-    WINE_TRACE("DBus: message for path [%s] dest [%s], intf [%s.%s]\n", mpath, mdest, mintf, mmemb);
-    
-    /* Message handler can return one of these values  from enum DBusHandlerResult:
-     * DBUS_HANDLER_RESULT_HANDLED - Message has had its effect,
-                                     no need to run more handlers.
-     * DBUS_HANDLER_RESULT_NOT_YET_HANDLED - Message has not had any effect,
-                                             see if other handlers want it.
-     * DBUS_HANDLER_RESULT_NEED_MEMORY - Please try again later with more memory.
-     */
-    return ret;
 }
 
 #else

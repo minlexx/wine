@@ -35,6 +35,7 @@
     DO_FUNC(dbus_connection_send); \
     DO_FUNC(dbus_connection_set_exit_on_disconnect); \
     DO_FUNC(dbus_connection_try_register_fallback); \
+    DO_FUNC(dbus_connection_try_register_object_path); \
     DO_FUNC(dbus_connection_unref); \
     DO_FUNC(dbus_error_free); \
     DO_FUNC(dbus_message_append_args); \
@@ -56,7 +57,19 @@ DBUS_FUNCS;
 #define EXPLORER_DBUS_NAME "org.winehq.shell"
 
 
-dbus_bool_t dbus_send_safe(DBusMessage *msg);
+dbus_bool_t winedbus_send_safe(DBusMessage *msg);
+dbus_bool_t winedbus_register_object(
+        const char *path,
+        DBusObjectPathMessageFunction message_handler_fn,
+        void *user_data);
+
+/* root object message handlers */
+void winedbus_message_unregistered_fn(DBusConnection *conn, void *user_data);
+dbus_bool_t winedbus_register_root_object(DBusConnection *dconn);
+
+
+/* introspection stuff */
+DBusMessage *winedbus_create_introspect_reply(DBusMessage *msg, const char *reply_xml);
 
 
 #endif

@@ -24,44 +24,13 @@
 #ifdef SONAME_LIBDBUS_1
 
 #include <dbus/dbus.h>
-
 #include "dbus_common.h"
 
-
-/* root object XML */
-const char *g_dbus_introspect_xml_root = ""
-"<!DOCTYPE node PUBLIC \"-//freedesktop//DTD D-BUS Object Introspection 1.0//EN\""
-" \"http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd\">\n"
-"<node name=\"/\">\n"
-"  <interface name=\"org.freedesktop.DBus.Introspectable\">\n"
-"    <method name=\"Introspect\">\n"
-"      <arg name=\"xml_data\" type=\"s\" direction=\"out\"/>\n"
-"    </method>\n"
-"  </interface>\n"
-"  <interface name=\"org.freedesktop.DBus.Properties\">\n"
-"    <method name=\"Get\">\n"
-"      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
-"      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
-"      <arg name=\"value\" type=\"v\" direction=\"out\"/>\n"
-"    </method>\n"
-"    <method name=\"Set\">\n"
-"      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
-"      <arg name=\"property_name\" type=\"s\" direction=\"in\"/>\n"
-"      <arg name=\"value\" type=\"v\" direction=\"in\"/>\n"
-"    </method>\n"
-"    <method name=\"GetAll\">\n"
-"      <arg name=\"interface_name\" type=\"s\" direction=\"in\"/>\n"
-"      <arg name=\"props\" type=\"{sv}\" direction=\"out\"/>\n"
-"    </method>\n"
-"  </interface>\n"
-"  <interface name=\"" EXPLORER_DBUS_NAME "\">\n"
-"    <property name=\"WineVersion\" type=\"s\" access=\"read\"/>\n"
-"  </interface>\n"
-"</node>";
+WINE_DEFAULT_DEBUG_CHANNEL(dbus);
 
 
 /* this creates response message with simlple string value */
-DBusMessage *dbus_create_introspect_reply(
+DBusMessage *winedbus_create_introspect_reply(
         DBusMessage *msg,
         const char *reply_xml)
 {
