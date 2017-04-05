@@ -22,6 +22,10 @@
 #define __WINE_DBUS_COMMON_H
 
 
+extern BOOL winedbus_initialize(void) DECLSPEC_HIDDEN;
+extern void winedbus_disconnect(void) DECLSPEC_HIDDEN;
+
+
 #ifdef SONAME_LIBDBUS_1
 #include <dbus/dbus.h>
 
@@ -64,29 +68,29 @@ DBUS_FUNCS;
 #define EXPLORER_DBUS_NAME "org.winehq.shell"
 
 
-dbus_bool_t winedbus_send_safe(DBusMessage *msg);
+dbus_bool_t winedbus_send_safe(DBusMessage *msg) DECLSPEC_HIDDEN;
 dbus_bool_t winedbus_register_object(
         const char *path,
         DBusObjectPathMessageFunction message_handler_fn,
-        void *user_data);
+        void *user_data) DECLSPEC_HIDDEN;
 
 /* root object message handlers */
-void winedbus_message_unregistered_fn(DBusConnection *conn, void *user_data);
-dbus_bool_t winedbus_register_root_object(DBusConnection *dconn);
+void winedbus_message_unregistered_fn(DBusConnection *conn, void *user_data) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_register_root_object(DBusConnection *dconn) DECLSPEC_HIDDEN;
 
 
 /* introspection stuff */
-DBusMessage *winedbus_create_introspect_reply(DBusMessage *msg, const char *reply_xml);
-DBusMessage *winedbus_create_reply_propget_s(DBusMessage *msg, const char *s);
-DBusMessage *winedbus_create_reply_propget_vs(DBusMessage *msg, const char *s);
+DBusMessage *winedbus_create_introspect_reply(DBusMessage *msg, const char *reply_xml) DECLSPEC_HIDDEN;
+DBusMessage *winedbus_create_reply_propget_s(DBusMessage *msg, const char *s) DECLSPEC_HIDDEN;
+DBusMessage *winedbus_create_reply_propget_vs(DBusMessage *msg, const char *s) DECLSPEC_HIDDEN;
 
 /* error replies */
-dbus_bool_t winedbus_error_reply_failed(DBusMessage *message);
-dbus_bool_t winedbus_error_reply_unknown_interface(DBusMessage *message, const char *iface);
-dbus_bool_t winedbus_error_reply_unknown_property(DBusMessage *message, const char *prop_name);
-dbus_bool_t winedbus_error_reply_unknown_method(DBusMessage *message, const char *meth_name);
-dbus_bool_t winedbus_error_reply_read_only_prop(DBusMessage *message, const char *prop_name);
-dbus_bool_t winedbus_error_reply_invalid_args(DBusMessage *message);
+dbus_bool_t winedbus_error_reply_failed(DBusMessage *message) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_error_reply_unknown_interface(DBusMessage *message, const char *iface) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_error_reply_unknown_property(DBusMessage *message, const char *prop_name) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_error_reply_unknown_method(DBusMessage *message, const char *meth_name) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_error_reply_read_only_prop(DBusMessage *message, const char *prop_name) DECLSPEC_HIDDEN;
+dbus_bool_t winedbus_error_reply_invalid_args(DBusMessage *message) DECLSPEC_HIDDEN;
 
 
 #endif

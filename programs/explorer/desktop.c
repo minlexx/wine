@@ -34,6 +34,7 @@
 #include "wine/unicode.h"
 #include "wine/debug.h"
 #include "explorer_private.h"
+#include "dbus_common.h"
 
 WINE_DEFAULT_DEBUG_CHANNEL(explorer);
 
@@ -990,7 +991,7 @@ void manage_desktop( WCHAR *arg )
         ClipCursor( NULL );
         initialize_display_settings();
         initialize_appbar();
-        enable_dbus = initialize_dbus();
+        enable_dbus = winedbus_initialize();
 
         if (graphics_driver)
         {
@@ -1037,7 +1038,7 @@ void manage_desktop( WCHAR *arg )
         WINE_TRACE( "desktop message loop exiting for hwnd %p\n", hwnd );
     }
 
-    if (enable_dbus) disconnect_dbus();
+    if (enable_dbus) winedbus_disconnect();
     
     ExitProcess( 0 );
 }

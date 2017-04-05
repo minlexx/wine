@@ -79,7 +79,7 @@ failed:
 /**
  * Returns TRUE if dbus was initialized and available.
  */
-BOOL initialize_dbus(void)
+BOOL winedbus_initialize(void)
 {
     DBusError derr = DBUS_ERROR_INIT;
     const char *unique_name = NULL;
@@ -138,7 +138,7 @@ BOOL initialize_dbus(void)
 }
 
 
-void disconnect_dbus(void)
+void winedbus_disconnect(void)
 {
     DBusError derr = DBUS_ERROR_INIT;
     if (g_dconn != NULL)
@@ -265,12 +265,12 @@ static void start_dbus_thread(void)
 /**
  * Returns TRUE if dbus was initialized and available.
  */
-BOOL initialize_dbus(void)
+BOOL winedbus_initialize(void)
 {
     WINE_TRACE("Skipping, DBus support not compiled in\n");
     return FALSE;
 }
 
-void void disconnect_dbus(void) { }
+void void winedbus_disconnect(void) { }
 
 #endif
