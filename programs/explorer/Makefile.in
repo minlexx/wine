@@ -12,6 +12,7 @@ C_SRCS = \
 	systray.c \
 	dbus.c \
 	dbus_introspection.c \
-	dbus_root_object.c
+	dbus_root_object.c \
+	dbus_error_replies.c
 
 RC_SRCS = explorer.rc

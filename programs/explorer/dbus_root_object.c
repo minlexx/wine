@@ -1,5 +1,5 @@
 /*
- * Explorer dbus introspection functions support
+ * Explorer dbus functions support
  *
  * Copyright 2017 Alexey Minnekhanov
  *
@@ -75,8 +75,11 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
         void *user_data)
 {
     DBusHandlerResult ret;
-    const char *mpath, *mintf, *mmemb, *mdest;
     DBusMessage *reply = NULL;
+    DBusError derr = DBUS_ERROR_INIT;
+    dbus_bool_t resb = FALSE;
+    const char *mpath, *mintf, *mmemb, *mdest, *msig;
+    char *req_intf, *req_prop;
     
     UNREFERENCED_PARAMETER(user_data); /* unused */
     
@@ -89,8 +92,7 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
     mintf = g_fn_dbus_message_get_interface(msg);
     mmemb = g_fn_dbus_message_get_member(msg);
     mdest = g_fn_dbus_message_get_destination(msg);
-    /* msig  = g_fn_dbus_message_get_signature(msg); */
-    WINE_TRACE("msg for path [%s] dest [%s], intf [%s.%s]\n", mpath, mdest, mintf, mmemb);
+    msig  = g_fn_dbus_message_get_signature(msg);
     
     /* path [/] dest [org.winehq.shell], intf [org.freedesktop.DBus.Introspectable.Introspect] */
     /* path [/] dest [org.winehq.shell], intf [org.freedesktop.DBus.Properties.Get] */
@@ -98,11 +100,99 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
     /* handle only messages for path "/" and "org.winehq.shell" */
     if ((strcmp(mpath, "/") == 0) && (strcmp(mdest, EXPLORER_DBUS_NAME) == 0))
     {
-        if ((strcmp(mintf, "org.freedesktop.DBus.Introspectable") == 0) &&
-            (strcmp(mmemb, "Introspect") == 0))
+        if (strcmp(mintf, "org.freedesktop.DBus.Introspectable") == 0)
         {
-            /* root object introspection request */
-            reply = winedbus_create_introspect_reply(msg, g_winedbus_introspect_xml_root);
+            if (g_fn_dbus_message_is_method_call(msg, mintf, mmemb))
+            {
+                if (strcmp(mmemb, "Introspect") == 0)
+                {
+                    /* root object introspection request */
+                    reply = winedbus_create_introspect_reply(msg, g_winedbus_introspect_xml_root);
+                }
+                else
+                {
+                    /* unknown method */
+                    winedbus_error_reply_unknown_method(msg, mmemb);
+                }
+            }
+        }
+        else if (strcmp(mintf, "org.freedesktop.DBus.Properties") == 0)
+        {
+            if (g_fn_dbus_message_is_method_call(msg, mintf, mmemb))
+            {
+                if (strcmp(mmemb, "Get") == 0)
+                {
+                    if (strcmp(msig, "ss"))
+                    {
+                        /* incorrect call signature, must be 2 string arguments */
+                        winedbus_error_reply_invalid_args(msg);
+                        return ret;
+                    }
+                    resb = g_fn_dbus_message_get_args(msg, &derr,
+                        DBUS_TYPE_STRING, &req_intf,
+                        DBUS_TYPE_STRING, &req_prop,
+                        DBUS_TYPE_INVALID);
+                    if (resb == FALSE)
+                    {
+                        winedbus_error_reply_invalid_args(msg);
+                        return ret;
+                    }
+                    WINE_TRACE("DBus: call [%s] Properties.Get([%s], [%s])\n",
+                            mintf, req_intf, req_prop);
+                    if(strcmp(req_prop, "WineVersion") == 0) {
+                        HANDLE hntdll = GetModuleHandleA("ntdll.dll");
+                        if (hntdll)
+                        {
+                            static const char * (CDECL *pwine_get_version)(void);
+                            pwine_get_version = (void *)GetProcAddress(hntdll, "wine_get_version");
+                            if(pwine_get_version) {
+                                reply = winedbus_create_reply_propget_s(msg, pwine_get_version());
+                            } else {
+                                reply = winedbus_create_reply_propget_s(msg, "not wine");
+                            }
+                        }
+                        else
+                        {
+                            reply = winedbus_create_reply_propget_s(msg, "unknown");
+                        }
+                    }
+                }
+                else if (strcmp(mmemb, "Set") == 0)
+                {
+                    if (strcmp(msig, "ssv"))
+                    {
+                        winedbus_error_reply_invalid_args(msg);
+                        return ret;
+                    }
+
+                    resb = g_fn_dbus_message_get_args(msg, &derr,
+                        DBUS_TYPE_STRING, &req_intf,
+                        DBUS_TYPE_STRING, &req_prop,
+                        DBUS_TYPE_INVALID );
+                    
+                    if (resb == TRUE)
+                    {
+                        WINE_TRACE("DBus: call [%s] Properties.Set([%s], [%s]): replying: read-only\n",
+                                mintf, req_intf, req_prop);
+                        winedbus_error_reply_read_only_prop(msg, req_prop);
+                    }
+                    else
+                    {
+                        winedbus_error_reply_read_only_prop(msg, "FAILED_TO_GET_PROP_NAME");
+                    }
+                    return ret;
+                }
+                else
+                {
+                    /* unknown method */
+                    winedbus_error_reply_unknown_method(msg, mmemb);
+                }
+            }
+        }
+        else
+        {
+            /* unknown interface */
+            winedbus_error_reply_unknown_interface(msg, mintf);
         }
     }
     
@@ -111,6 +201,11 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
     {
         winedbus_send_safe(reply);
         g_fn_dbus_message_unref(reply);
+    }
+    else
+    {
+        WINE_TRACE("Unhandled message for path [%s] dest [%s], intf [%s.%s()]\n",
+                mpath, mdest, mintf, mmemb);
     }
     
     /* Message handler can return one of these values  from enum DBusHandlerResult:

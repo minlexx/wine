@@ -39,11 +39,18 @@
     DO_FUNC(dbus_connection_unref); \
     DO_FUNC(dbus_error_free); \
     DO_FUNC(dbus_message_append_args); \
+    DO_FUNC(dbus_message_get_args); \
     DO_FUNC(dbus_message_get_destination); \
     DO_FUNC(dbus_message_get_interface); \
     DO_FUNC(dbus_message_get_member); \
     DO_FUNC(dbus_message_get_path); \
     DO_FUNC(dbus_message_get_signature); \
+    DO_FUNC(dbus_message_is_method_call); \
+    DO_FUNC(dbus_message_iter_append_basic); \
+    DO_FUNC(dbus_message_iter_init_append); \
+    DO_FUNC(dbus_message_iter_close_container); \
+    DO_FUNC(dbus_message_iter_open_container); \
+    DO_FUNC(dbus_message_new_error); \
     DO_FUNC(dbus_message_new_method_return); \
     DO_FUNC(dbus_message_unref)
 
@@ -70,6 +77,16 @@ dbus_bool_t winedbus_register_root_object(DBusConnection *dconn);
 
 /* introspection stuff */
 DBusMessage *winedbus_create_introspect_reply(DBusMessage *msg, const char *reply_xml);
+DBusMessage *winedbus_create_reply_propget_s(DBusMessage *msg, const char *s);
+DBusMessage *winedbus_create_reply_propget_vs(DBusMessage *msg, const char *s);
+
+/* error replies */
+dbus_bool_t winedbus_error_reply_failed(DBusMessage *message);
+dbus_bool_t winedbus_error_reply_unknown_interface(DBusMessage *message, const char *iface);
+dbus_bool_t winedbus_error_reply_unknown_property(DBusMessage *message, const char *prop_name);
+dbus_bool_t winedbus_error_reply_unknown_method(DBusMessage *message, const char *meth_name);
+dbus_bool_t winedbus_error_reply_read_only_prop(DBusMessage *message, const char *prop_name);
+dbus_bool_t winedbus_error_reply_invalid_args(DBusMessage *message);
 
 
 #endif

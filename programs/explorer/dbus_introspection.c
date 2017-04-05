@@ -52,4 +52,37 @@ DBusMessage *winedbus_create_introspect_reply(
     return reply;
 }
 
+
+/* this should reply STRING value */
+DBusMessage *winedbus_create_reply_propget_s(DBusMessage *msg, const char *s)
+{
+    DBusMessage *reply;
+    DBusMessageIter iter;
+    
+    reply = g_fn_dbus_message_new_method_return(msg);
+    if (!reply) return NULL;
+    
+    g_fn_dbus_message_iter_init_append(reply, &iter);
+    g_fn_dbus_message_iter_append_basic(&iter, DBUS_TYPE_STRING, &s);
+    return reply;
+}
+
+
+/* this should reply DBUS_VARIANT type with internal STRING value */
+DBusMessage *winedbus_create_reply_propget_vs(DBusMessage *msg, const char *s)
+{
+    DBusMessage *reply;
+    DBusMessageIter iter, sub_iter;
+    
+    reply = g_fn_dbus_message_new_method_return(msg);
+    if (!reply) return NULL;
+    
+    /* we can send VARIANT only with iterator */
+    g_fn_dbus_message_iter_init_append(reply, &iter);
+    g_fn_dbus_message_iter_open_container(&iter, DBUS_TYPE_VARIANT, "s", &sub_iter);
+    g_fn_dbus_message_iter_append_basic(&sub_iter, DBUS_TYPE_STRING, &s);
+    g_fn_dbus_message_iter_close_container(&iter, &sub_iter);
+    return reply;
+}
+
 #endif
