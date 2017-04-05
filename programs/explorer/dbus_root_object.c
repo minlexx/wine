@@ -76,6 +76,7 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
 {
     DBusHandlerResult ret;
     const char *mpath, *mintf, *mmemb, *mdest;
+    DBusMessage *reply = NULL;
     
     UNREFERENCED_PARAMETER(user_data); /* unused */
     
@@ -101,13 +102,15 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
             (strcmp(mmemb, "Introspect") == 0))
         {
             /* root object introspection request */
-            DBusMessage *reply = winedbus_create_introspect_reply(msg, g_winedbus_introspect_xml_root);
-            if (reply)
-            {
-                winedbus_send_safe(reply);
-                g_fn_dbus_message_unref(reply);
-            }
+            reply = winedbus_create_introspect_reply(msg, g_winedbus_introspect_xml_root);
         }
+    }
+    
+    /* common place to send reply and delete it */
+    if (reply)
+    {
+        winedbus_send_safe(reply);
+        g_fn_dbus_message_unref(reply);
     }
     
     /* Message handler can return one of these values  from enum DBusHandlerResult:
@@ -136,13 +139,14 @@ dbus_bool_t winedbus_register_root_object(DBusConnection *dconn)
             &vtable,       /* message handler functions */
             NULL,          /* user_data */
             &derr);
+    
     if(resb == FALSE)
     {
         WINE_WARN("DBus: ERROR: Failed to register DBus root object "
              "message handler! Error: %s\n", derr.message);
-        g_fn_dbus_error_free(&derr);
-        return resb;
     }
+    
+    g_fn_dbus_error_free(&derr);
     return resb;
 }
 
