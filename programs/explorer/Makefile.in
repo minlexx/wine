@@ -10,6 +10,7 @@ C_SRCS = \
 	explorer.c \
 	startmenu.c \
 	systray.c \
-	dbus.c
+	dbus.c \
+	dbus_introspection.c
 
 RC_SRCS = explorer.rc

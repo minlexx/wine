@@ -36,31 +36,13 @@ WINE_DEFAULT_DEBUG_CHANNEL(dbus);
 #ifdef SONAME_LIBDBUS_1
 
 #include <dbus/dbus.h>
-
-/* All DBus APIs, used by this module */
-#define DBUS_FUNCS \
-    DO_FUNC(dbus_bus_get); \
-    DO_FUNC(dbus_bus_get_unique_name); \
-    DO_FUNC(dbus_bus_release_name); \
-    DO_FUNC(dbus_bus_request_name); \
-    DO_FUNC(dbus_connection_read_write_dispatch); \
-    DO_FUNC(dbus_connection_set_exit_on_disconnect); \
-    DO_FUNC(dbus_connection_try_register_fallback); \
-    DO_FUNC(dbus_connection_unref); \
-    DO_FUNC(dbus_error_free); \
-    DO_FUNC(dbus_message_get_destination); \
-    DO_FUNC(dbus_message_get_interface); \
-    DO_FUNC(dbus_message_get_member); \
-    DO_FUNC(dbus_message_get_path); \
-    DO_FUNC(dbus_message_get_signature);
+#include "dbus_common.h"
 
 /* pointers to dbus functions */
-#define DO_FUNC(f) static typeof(f) * p_##f
+#define DO_FUNC(f) typeof(f) * g_fn_##f
 DBUS_FUNCS;
 #undef DO_FUNC
 
-/* well-known bus name for wine explorer */
-#define EXPLORER_DBUS_NAME "org.winehq.shell"
 
 /* global connection object */
 static DBusConnection *g_dconn = NULL;
@@ -85,7 +67,7 @@ static BOOL load_dbus_functions(void)
     if (!(handle = wine_dlopen(SONAME_LIBDBUS_1, RTLD_NOW, error, sizeof(error))))
         goto failed;
 
-#define DO_FUNC(f) if (!(p_##f = wine_dlsym( handle, #f, error, sizeof(error) ))) goto failed
+#define DO_FUNC(f) if (!(g_fn_##f = wine_dlsym( handle, #f, error, sizeof(error) ))) goto failed
     DBUS_FUNCS;
 #undef DO_FUNC
     WINE_TRACE("Loaded DBus support.\n");
@@ -112,32 +94,32 @@ BOOL initialize_dbus(void)
     if (!load_dbus_functions()) return FALSE;
     
     /* 2. Connect to session bus */
-    g_dconn = p_dbus_bus_get(DBUS_BUS_SESSION, &derr);
+    g_dconn = g_fn_dbus_bus_get(DBUS_BUS_SESSION, &derr);
     
     if (!g_dconn)
     {
         WINE_WARN("Failed to connect to DBus session bus! Disabling DBus functions.\n");
         WINE_WARN("  DBus error: %s\n", derr.message);
-        p_dbus_error_free(&derr);
+        g_fn_dbus_error_free(&derr);
         return FALSE;
     }
     
     /* we do not want to terminate explorer process on dbus disconnect */
-    p_dbus_connection_set_exit_on_disconnect(g_dconn, FALSE);
+    g_fn_dbus_connection_set_exit_on_disconnect(g_dconn, FALSE);
     
-    unique_name = p_dbus_bus_get_unique_name(g_dconn);
+    unique_name = g_fn_dbus_bus_get_unique_name(g_dconn);
     WINE_TRACE("Connected to DBus session bus as unique name: [%s]\n", unique_name);
     
     /* 3. Request well-known name on bus */
-    res = p_dbus_bus_request_name(g_dconn, EXPLORER_DBUS_NAME,
+    res = g_fn_dbus_bus_request_name(g_dconn, EXPLORER_DBUS_NAME,
             DBUS_NAME_FLAG_ALLOW_REPLACEMENT | DBUS_NAME_FLAG_DO_NOT_QUEUE,
             &derr);
     if (res != DBUS_REQUEST_NAME_REPLY_PRIMARY_OWNER)
     {
         WINE_WARN("Failed to register unique name on session bus: " EXPLORER_DBUS_NAME "\n");
         WINE_WARN("  DBus error: %s\n", derr.message);
-        p_dbus_error_free(&derr);
-        p_dbus_connection_unref(g_dconn);
+        g_fn_dbus_error_free(&derr);
+        g_fn_dbus_connection_unref(g_dconn);
         g_dconn = NULL;
         return FALSE;
     }
@@ -149,7 +131,7 @@ BOOL initialize_dbus(void)
     ZeroMemory(&vtable, sizeof(vtable));
     vtable.unregister_function = root_message_handler_unreg;
     vtable.message_function    = root_message_handler;
-    resb = p_dbus_connection_try_register_fallback(
+    resb = g_fn_dbus_connection_try_register_fallback(
             g_dconn,
             "/",           /* object path */
             &vtable,       /* message handler functions */
@@ -159,15 +141,15 @@ BOOL initialize_dbus(void)
     {
         WINE_WARN("DBus: ERROR: Failed to register DBus root object "
              "message handler! Error: %s\n", derr.message);
-        p_dbus_error_free(&derr);
-        p_dbus_connection_unref(g_dconn);
+        g_fn_dbus_error_free(&derr);
+        g_fn_dbus_connection_unref(g_dconn);
         g_dconn = NULL;
         return FALSE;
     }
     /* start message loop thread */
     start_dbus_thread();
     
-    p_dbus_error_free(&derr);
+    g_fn_dbus_error_free(&derr);
     return TRUE;
 }
 
@@ -177,15 +159,37 @@ void disconnect_dbus(void)
     DBusError derr = DBUS_ERROR_INIT;
     if (g_dconn != NULL)
     {
-        p_dbus_bus_release_name(g_dconn, EXPLORER_DBUS_NAME, &derr);
-        p_dbus_connection_unref(g_dconn);
-        p_dbus_error_free(&derr);
+        g_fn_dbus_bus_release_name(g_dconn, EXPLORER_DBUS_NAME, &derr);
+        g_fn_dbus_connection_unref(g_dconn);
+        g_fn_dbus_error_free(&derr);
         g_dconn = NULL;
         
         DeleteCriticalSection(&g_dconn_cs);
         
         WINE_TRACE("Disconnected from DBus session bus.\n");
     }
+}
+
+
+/* Locks connection lock, sends message and unlocks the lock.
+ * Safe to use with message loop thread running. */
+dbus_bool_t dbus_send_safe(DBusMessage *msg)
+{
+    dbus_bool_t resb;
+    
+    if (!g_dconn) return FALSE;
+    if (!msg) return FALSE;
+    
+    EnterCriticalSection(&g_dconn_cs);
+    resb = g_fn_dbus_connection_send(g_dconn, msg, NULL);
+    LeaveCriticalSection(&g_dconn_cs);
+    
+    if (resb == FALSE)
+    {
+        WINE_WARN("dbus_connection_send() failed!\n");
+    }
+    
+    return resb;
 }
 
 
@@ -206,7 +210,7 @@ static DWORD WINAPI message_loop_thread(void *arg)
         EnterCriticalSection(&g_dconn_cs);
         /* reads data from socket (wait 100 ms) and calls message handler */
         /* retb will be TRUE if the disconnect message has NOT been processed */
-        retb = p_dbus_connection_read_write_dispatch(g_dconn, 100);
+        retb = g_fn_dbus_connection_read_write_dispatch(g_dconn, 100);
         LeaveCriticalSection(&g_dconn_cs);
         /* We need to release lock at least sometimes, that's why 
          * here is Sleep() call here with timeout of 100 ms */
@@ -219,7 +223,7 @@ static DWORD WINAPI message_loop_thread(void *arg)
     WINE_WARN("DBus: message loop has ended for some reason! Closing connection.\n");
     
     /* if we are here, we are probably not connected already */
-    p_dbus_connection_unref(g_dconn);
+    g_fn_dbus_connection_unref(g_dconn);
     g_dconn = NULL;
    
     /* mark as not running */
@@ -269,11 +273,11 @@ static DBusHandlerResult root_message_handler(
     ret = DBUS_HANDLER_RESULT_HANDLED;
     
     /* Get message information */
-    mpath = p_dbus_message_get_path(msg);
-    mintf = p_dbus_message_get_interface(msg);
-    mmemb = p_dbus_message_get_member(msg);
-    mdest = p_dbus_message_get_destination(msg);
-    msig  = p_dbus_message_get_signature(msg);
+    mpath = g_fn_dbus_message_get_path(msg);
+    mintf = g_fn_dbus_message_get_interface(msg);
+    mmemb = g_fn_dbus_message_get_member(msg);
+    mdest = g_fn_dbus_message_get_destination(msg);
+    msig  = g_fn_dbus_message_get_signature(msg);
     WINE_TRACE("DBus: message for path [%s] dest [%s], intf [%s.%s]\n", mpath, mdest, mintf, mmemb);
     
     /* Message handler can return one of these values  from enum DBusHandlerResult:
