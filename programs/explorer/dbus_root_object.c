@@ -139,6 +139,7 @@ static DBusHandlerResult winedbus_rootobj_message_fn(
                     }
                     WINE_TRACE("DBus: call [%s] Properties.Get([%s], [%s])\n",
                             mintf, req_intf, req_prop);
+                    
                     if(strcmp(req_prop, "WineVersion") == 0) {
                         HANDLE hntdll = GetModuleHandleA("ntdll.dll");
                         if (hntdll)
