@@ -921,6 +921,7 @@ void manage_desktop( WCHAR *arg )
     WCHAR *p = arg;
     const WCHAR *name = NULL;
     BOOL enable_shell = FALSE;
+    BOOL enable_dbus = FALSE;
     void (WINAPI *pShellDDEInit)( BOOL ) = NULL;
 
     /* get the rest of the command line (if any) */
@@ -990,6 +991,7 @@ void manage_desktop( WCHAR *arg )
         ClipCursor( NULL );
         initialize_display_settings();
         initialize_appbar();
+        enable_dbus = initialize_dbus();
 
         if (graphics_driver)
         {
@@ -1036,6 +1038,8 @@ void manage_desktop( WCHAR *arg )
     }
 
     if (pShellDDEInit) pShellDDEInit( FALSE );
+
+    if (enable_dbus) disconnect_dbus();
 
     ExitProcess( 0 );
 }

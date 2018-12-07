@@ -28,4 +28,8 @@ extern void handle_parent_notify( HWND hwnd, WPARAM wp ) DECLSPEC_HIDDEN;
 extern void do_startmenu( HWND owner ) DECLSPEC_HIDDEN;
 extern LRESULT menu_wndproc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) DECLSPEC_HIDDEN;
 
+/* DBus related */
+extern BOOL initialize_dbus(void) DECLSPEC_HIDDEN;
+extern void disconnect_dbus(void) DECLSPEC_HIDDEN;
+
 #endif  /* __WINE_EXPLORER_PRIVATE_H */

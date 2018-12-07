@@ -2,12 +2,14 @@ MODULE    = explorer.exe
 APPMODE   = -mwindows -municode
 IMPORTS   = rpcrt4 user32 gdi32 advapi32
 DELAYIMPORTS = comctl32 shell32 oleaut32 ole32 shlwapi
+EXTRAINCL = $(DBUS_CFLAGS)
 
 C_SRCS = \
 	appbar.c \
 	desktop.c \
 	explorer.c \
 	startmenu.c \
-	systray.c
+	systray.c \
+	dbus.c
 
 RC_SRCS = explorer.rc
